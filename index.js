@@ -1,4 +1,5 @@
 var dgram = require('dgram');
+var dns = require('dns');
 var cyclist = require('cyclist');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
@@ -96,7 +97,16 @@ var Connection = function(port, host, socket, syn) {
 	this._closed = false;
 	this._alive = false;
 
-	if (syn) {
+	if(typeof syn == 'number') {
+		this._connecting = true;
+		this._recvId = syn;
+		this._sendId = uint16(this._recvId + 1);
+		this._seq = (Math.random() * UINT16) | 0;
+		this._ack = 0;
+		this._synack = null;
+
+		this._sendOutgoing(createPacket(self, PACKET_SYN, null));
+	} else if (syn) {
 		this._connecting = false;
 		this._recvId = uint16(syn.connection+1);
 		this._sendId = syn.connection;
@@ -350,6 +360,35 @@ Server.prototype.listen = function(port, socket, onlistening) {
 
 	socket.bind(port);
 };
+
+Server.prototype.connect = function(port, host, callback) {
+	var self = this;
+	dns.lookup(host || '127.0.0.1', function(err, addr, family){
+		if(err) return callback(err);
+		else    return callback(null, self.connectAddr(port, addr));
+	});
+};
+
+Server.prototype.connectAddr = function(port, address) {
+	// FIXME: if called directly, the IP address might be in a non normalized
+	// state (leading zeros, uppercase/lowercase differences, IPv6 '::') that may
+	// lead to an incorrect connection id (variable `id`). use `connect` instead
+	// of `connectAddr`  in those cases. It does normalization.
+	address = address || '127.0.0.1';
+	var connId = this._getNewConnectionId(address);
+	var connection = new Connection(port, addr, this._socket, connId);
+	var id = address + ':' + connId;
+	this._connections[id] = connection;
+	return connection;
+};
+
+Server.prototype._getNewConnectionId = function(address) {
+	var id = (Math.random() * UINT16) | 0;
+	while(id === undefined || this._connections[address + ':' + id]) {
+		id = uint16(id + 1);
+	}
+	return id;
+}
 
 exports.createServer = function(onconnection) {
 	var server = new Server();
