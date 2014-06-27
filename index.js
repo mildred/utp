@@ -153,6 +153,7 @@ var Connection = function(port, host, socket, opts, syn) {
 	this._inflightPackets = 0;
 	this._closed = false;
 	this._alive = false;
+	this._connectingTimeout = undefined;
 
 	if(typeof syn == 'number') {
 		this._connecting = true;
@@ -182,6 +183,11 @@ var Connection = function(port, host, socket, opts, syn) {
 		this._ack = 0;
 	}
 
+  // Default timeout of 5s when initiate a connection. No timeout during
+  // connection
+  if(opts.timeout === undefined) opts.timeout = 5000;
+  if(opts.timeout) this._connectingTimeout = setTimeout(connectionTimedOut, opts.timeout);
+
 	var resend = setInterval(this._resend.bind(this), 500);
 	var keepAlive = setInterval(this._keepAlive.bind(this), 10*1000);
 	var tick = 0;
@@ -205,6 +211,12 @@ var Connection = function(port, host, socket, opts, syn) {
 	this.once('end', function() {
 		process.nextTick(closed);
 	});
+	
+	function connectionTimedOut() {
+	  self.emit('timeout');
+	  self.end();
+	  self.push(null);
+	};
 };
 
 util.inherits(Connection, Duplex);
@@ -330,6 +342,7 @@ Connection.prototype._recvIncoming = function(packet) {
 			}
 
 			this._connecting = false;
+			if(this._connectingTimeout) clearTimeout(this._connectingTimeout);
 			this._recvId = uint16(packet.connection+1);
 			this._sendId = packet.connection;
 			this._ack = packet.seq;
@@ -362,6 +375,7 @@ Connection.prototype._recvIncoming = function(packet) {
 
 	if(this._connecting) {
 		this._connecting = false;
+		if(this._connectingTimeout) clearTimeout(this._connectingTimeout);
 		this.emit('connect');
 	}
 	
