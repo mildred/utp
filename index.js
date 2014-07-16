@@ -426,7 +426,14 @@ Server.prototype.address = function() {
 	return this._socket.address();
 };
 
-Server.prototype.listen = function(port, socket, onlistening) {
+Server.prototype.close = function() {
+	this._socket.close();
+	delete this._socket;
+	this._socket = null;
+	this._connections = {};
+}
+
+Server.prototype.listen = function(port, socket, onlistening, onerror) {
 	if(typeof socket == 'function') {
 		onlistening = socket;
 		socket = dgram.createSocket('udp4');
@@ -456,6 +463,11 @@ Server.prototype.listen = function(port, socket, onlistening) {
 
 	socket.once('listening', function() {
 		self.emit('listening');
+		onerror = undefined;
+	});
+
+	socket.once('error', function(e) {
+		if(onerror) onerror(e);
 	});
 
 	if (onlistening) self.once('listening', onlistening);
