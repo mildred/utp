@@ -435,6 +435,7 @@ Server.prototype.close = function() {
 
 Server.prototype.listen = function(port, socket, onlistening, onerror) {
 	if(typeof socket == 'function') {
+	  onerror = onlistening;
 		onlistening = socket;
 		socket = dgram.createSocket('udp4');
 	} else if(typeof socket == 'string') {
