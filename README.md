@@ -141,8 +141,38 @@ This library extends the protocol in two ways:
   connection. The SYN packet have additional data that are inserted in the
   stream.
 
-* A new extension header (identtified by extension number 2) has been
-  introduced. It provides additional metadata to the payload.
+* A new extension header (identified by extension number 2) has been
+  introduced. It provides additional metadata to the payload. In order to use
+  this facility, you have to write a Buffer object that has a meta property
+  containing the metadata to send. When receiving a buffer, the meta property
+  will be set as well.
+  
+  Example for sending metadata:
+  
+        buffer = new Buffer();     // must be a Buffer
+        buffer.meta = "request-1"; // could be string or Buffer
+        utp.write(buffer);
+
+  Example for receiving metadata:
+  
+        var currentRequest = null;
+        var requestData = []
+        utp.on('data', function(buf){
+          var meta = buf.meta.toString();
+          if(currentRequest != meta && requestData.length > 0) {
+            var req = Buffer.concat(requestData);
+            ...
+            requestData = [];
+          }
+          currentRequest = meta;
+          requestData.push(buf);
+        });
+
+  Note that setting metadata will necessary split packets if the metatadata is
+  changing at some point.
+  
+  This can be very useful to send frames within the stream. Frame boundaries can
+  be expressed by metadata change.
 
 
 ## License
