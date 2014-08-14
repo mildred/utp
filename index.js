@@ -332,7 +332,8 @@ Connection.prototype._recvIncoming = function(packet) {
 	if(this._connecting) {
 		if(this._recvId === this._sendId) {
 
-			// Expect to receive a SYN packet
+			// The other end initiated the connection
+			// Expect to receive a SYN packet, reply with a STATE packet
 
 			if (packet.id !== PACKET_SYN) {
 				this._transmit(createPacket(this, PACKET_RESET, null));
@@ -352,10 +353,14 @@ Connection.prototype._recvIncoming = function(packet) {
 				if(packet.metadata) packet.data.meta = packet.metadata
 				this.push(packet.data);
 			}
+			
+			this.emit('connect');
+			
 			return;
 
 		} else {
 
+			// We initiated the connection, expect a reply
 			// Sent a SYN packet, expect to receive a STATE packet
 			
 			if (packet.id !== PACKET_STATE) {
@@ -500,12 +505,16 @@ Server.prototype.connectAddr = function(port, address, opts) {
 	// state (leading zeros, uppercase/lowercase differences, IPv6 '::') that may
 	// lead to an incorrect connection id (variable `id`). use `connect` instead
 	// of `connectAddr`  in those cases. It does normalization.
+	var self = this;
 	if(this._closed) throw new Error("Connection closed");
 	address = address || '127.0.0.1';
 	var connId = this._getNewConnectionId(address);
 	var connection = new Connection(port, address, this._socket, opts, connId);
 	var id = address + ':' + connId;
 	this._connections[id] = connection;
+	connection.on('close', function(){
+		delete self._connections[id];
+	});
 	return connection;
 };
 
