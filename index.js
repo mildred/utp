@@ -196,10 +196,14 @@ var Connection = function(port, host, socket, opts, syn) {
 		if (++tick === 2) self._closing();
 	};
 
+	var finished = false;
 	var sendFin = function() {
 		if (self._connecting) return self.once('connect', sendFin);
-		self._sendOutgoing(createPacket(self, PACKET_FIN, null));
-		self.once('flush', closed);
+		if(!finished){
+			finished = true;
+			self._sendOutgoing(createPacket(self, PACKET_FIN, null));
+			self.once('flush', closed);
+		}
 	};
 
 	this.once('finish', sendFin);
