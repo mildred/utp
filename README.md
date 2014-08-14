@@ -59,7 +59,10 @@ Create a new server, set up the `connection` event with the event handler
 * `opts`: option object for the connection
 * return an object derived from `Connection`
 
-The returned object may send `'error'` events when there is a socket error.
+The connection is not yet established at this point. Use the `'connect'` event
+to ensure the other end accepted the connection.
+
+If the socket cannot be opened, an `error` event will be fired.
 
 ### Server
 
@@ -80,10 +83,13 @@ Listen to the specified port using the given socket.
 Establish a new connection to the remote `host` and `port`. A new connection
 identifier will be chosen such as multiple connections to the same destination
 can coexist. `opts` are options passed to the `Connection` object. When the
-connection is ready, the `callback` will be called with:
+connection is started, the `callback` will be called with:
 
 * `err`: any error or `null`
 * `connection`: the `Connection` object
+
+The connection is not yet established at this point. Use the `'connect'` event
+to ensure the other end accepted the connection.
 
 #### Server.prototype.connectAddr(port, address, [opts])
 
@@ -133,6 +139,12 @@ Return the remote address and port in the form `{host: ..., port: ...}`
 
 When initiating the connection, this event is emitted when the other end
 accepted the connection.
+
+#### Event 'timeout'
+
+When initiating the connection, this event is emitted when the other end
+is not responding at all. The timeout is 5 seconds by default and can be
+configured with `opts.timeout`.
 
 
 ## Extensions to the protocol
