@@ -14,6 +14,8 @@ punching and similar while still providing a stream interface. It also features
 a congestion algorithm designed to keep TCP streams at the higher priority.
 It is currently the main network protocol powering bittorrent.
 
+Specification is available here: [http://www.bittorrent.org/beps/bep_0029.html]
+
 ## BEWARE BEWARE BEWARE
 
 *This module is a work in progress! So beware of dragons!*

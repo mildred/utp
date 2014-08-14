@@ -183,10 +183,10 @@ var Connection = function(port, host, socket, opts, syn) {
 		this._ack = 0;
 	}
 
-  // Default timeout of 5s when initiate a connection. No timeout during
-  // connection
-  if(opts.timeout === undefined) opts.timeout = 5000;
-  if(opts.timeout) this._connectingTimeout = setTimeout(connectionTimedOut, opts.timeout);
+	// Default timeout of 5s when initiate a connection. No timeout during
+	// connection
+	if(opts.timeout === undefined) opts.timeout = 5000;
+	if(opts.timeout) this._connectingTimeout = setTimeout(connectionTimedOut, opts.timeout);
 
 	var resend = setInterval(this._resend.bind(this), 500);
 	var keepAlive = setInterval(this._keepAlive.bind(this), 10*1000);
@@ -204,7 +204,7 @@ var Connection = function(port, host, socket, opts, syn) {
 
 	this.once('finish', sendFin);
 	this.once('close', function() {
-		if (!syn) setTimeout(socket.close.bind(socket), CLOSE_GRACE);
+		if (!syn && syn !== 0) setTimeout(socket.close.bind(socket), CLOSE_GRACE);
 		clearInterval(resend);
 		clearInterval(keepAlive);
 	});
@@ -213,9 +213,10 @@ var Connection = function(port, host, socket, opts, syn) {
 	});
 	
 	function connectionTimedOut() {
-	  self.emit('timeout');
-	  self.end();
-	  self.push(null);
+		self.emit('timeout');
+		self.end();
+		self.push(null);
+		self._closing();
 	};
 };
 
@@ -435,13 +436,14 @@ Server.prototype.close = function() {
 
 Server.prototype.listen = function(port, socket, onlistening, onerror) {
 	if(typeof socket == 'function') {
-	  onerror = onlistening;
+		onerror = onlistening;
 		onlistening = socket;
 		socket = dgram.createSocket('udp4');
 	} else if(typeof socket == 'string') {
 		socket = dgram.createSocket(socket);
 	}
 	this._socket = socket;
+	this._closed = false;
 	var connections = this._connections;
 	var self = this;
 
@@ -471,6 +473,10 @@ Server.prototype.listen = function(port, socket, onlistening, onerror) {
 		if(onerror) onerror(e);
 	});
 
+	socket.once('close', function(e) {
+		self._closed = true;
+	});
+
 	if (onlistening) self.once('listening', onlistening);
 
 	socket.bind(port);
@@ -483,6 +489,7 @@ Server.prototype.connect = function(port, host, opts, callback) {
 	}
 	var self = this;
 	dns.lookup(host || '127.0.0.1', function(err, addr, family){
+		if(!err && self._closed) err = new Error("Server stopped");
 		if(err) return callback(err);
 		else    return callback(null, self.connectAddr(port, addr, opts));
 	});
@@ -493,6 +500,7 @@ Server.prototype.connectAddr = function(port, address, opts) {
 	// state (leading zeros, uppercase/lowercase differences, IPv6 '::') that may
 	// lead to an incorrect connection id (variable `id`). use `connect` instead
 	// of `connectAddr`  in those cases. It does normalization.
+	if(this._closed) throw new Error("Connection closed");
 	address = address || '127.0.0.1';
 	var connId = this._getNewConnectionId(address);
 	var connection = new Connection(port, address, this._socket, opts, connId);
